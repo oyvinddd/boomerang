@@ -1,5 +1,5 @@
 //
-//  RequestFactory.swift
+//  RequestBuilder.swift
 //  Boomerang
 //
 //  Created by Øyvind Hauge on 31/07/2026.
@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct RequestFactory {
+final class RequestBuilder {
     
     var method: HttpMethod
     
@@ -29,8 +29,33 @@ struct RequestFactory {
         self.url = url
     }
     
-    mutating func set(body: Data?) -> Self {
+    @discardableResult
+    func set(value: String, for header: String) -> Self {
+        if headers == nil {
+            headers = [header: value]
+        }
+        headers?[header] = value
+        return self
+    }
+    
+    @discardableResult
+    func set(refreshToken: String?) -> Self {
+        guard let refreshToken else {
+            return self
+        }
+        set(value: "Bearer \(refreshToken)", for: "Authorization")
+        return self
+    }
+    
+    @discardableResult
+    func set(body: Data?) -> Self {
         self.body = body
+        return self
+    }
+    
+    @discardableResult
+    func set(data: Encodable) throws -> Self {
+        self.body = try JSONEncoder().encode(data)
         return self
     }
     

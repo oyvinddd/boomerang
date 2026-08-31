@@ -14,35 +14,46 @@ public enum NetworkError: Error {
     case invalidResponse
 }
 
-public struct Boomerang {
+public actor Boomerang {
     
-    private static let session: URLSession = .shared
+    public static let shared = Boomerang()
+    
+    private let urlSession: URLSession
+    private let jsonDecoder: JSONDecoder
+    
+    private var authManager: AuthManager
+    private var globalRequestHeaders: [String: String]?
         
-    private init() {} // make struct non-instanciable
+    init(urlSession: URLSession = .shared, decoder: JSONDecoder = .init()) {
+        self.urlSession = urlSession
+        self.jsonDecoder = decoder
+        self.authManager = .init(urlSession)
+    }
     
-    public static func get<T: Decodable>(_ url: URL) async throws -> T {
-        var request = URLRequest(url: url)
-        request.httpMethod = HttpMethod.get.rawValue
+    // MARK: - Public API
+    
+    public func execute<T: Decodable>(_ request: Requestable) async throws -> T {
         let (data, _) = try await executeRequest(request)
         return try JSONDecoder().decode(T.self, from: data)
     }
     
-    public static func post<T: Decodable>(_ request: Requestable) async throws -> T {
-        let (data, _) = try await executeRequest(RequestFactory(request).build())
-        return try JSONDecoder().decode(T.self, from: data)
+    public func execute(_ request: Requestable) async throws {
+        try await executeRequest(request)
     }
     
-    public static func execute<T: Decodable>(_ request: Requestable) async throws -> T {
-        let (data, _) = try await executeRequest(RequestFactory(request).build())
-        return try JSONDecoder().decode(T.self, from: data)
-    }
+    // MARK: - Private functions
     
-    public static func execute(_ request: Requestable) async throws {
-        _ = try await executeRequest(RequestFactory(request).build())
-    }
-    
-    private static func executeRequest(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let (data, res) = try await session.data(for: request)
+    @discardableResult
+    private func executeRequest(_ request: Requestable) async throws -> (Data, HTTPURLResponse) {
+        let builder = RequestBuilder(request)
+        
+        if request.authRequirement == .bearerToken {
+            try await authManager.refreshIfNeeded()
+            let token = await authManager.getRefreshToken()?.value
+            builder.set(refreshToken: token)
+        }
+        
+        let (data, res) = try await urlSession.data(for: builder.build())
         
         guard let httpResponse = res as? HTTPURLResponse else {
             throw NetworkError.invalidResponse
@@ -52,5 +63,23 @@ public struct Boomerang {
             throw NetworkError.invalidStatusCode(httpResponse.statusCode)
         }
         return (data, httpResponse)
+    }
+}
+
+// MARK: - Public utils
+
+extension Boomerang {
+    
+    public func setRefreshTokenUrl(_ url: URL) async {
+        await authManager.setRefreshUrl(url)
+    }
+    
+    public func setCredentials(_ refreshToken: JWT, _ accessToken: JWT) async throws {
+        let container = TokenContainer(refreshToken: refreshToken, accessToken: accessToken)
+        try await authManager.setCredentials(container)
+    }
+    
+    public func clearLocalAuthState() async {
+        _ = await authManager.clearLocalState()
     }
 }

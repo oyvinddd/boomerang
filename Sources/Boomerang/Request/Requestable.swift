@@ -7,6 +7,10 @@
 
 import Foundation
 
+public enum AuthRequirement {
+    case none, bearerToken
+}
+
 public enum HttpMethod: String {
     case get = "GET"
     
@@ -25,6 +29,8 @@ public protocol Requestable {
     
     var headers: [String: String] { get }
     
+    var authRequirement: AuthRequirement { get }
+    
     var url: URL { get }
     
     var body: Data? { get }
@@ -33,6 +39,8 @@ public protocol Requestable {
 public extension Requestable {
     
     var method: HttpMethod { .get }
+    
+    var authRequirement: AuthRequirement { .none }
     
     var headers: [String: String] { [:] }
 }
