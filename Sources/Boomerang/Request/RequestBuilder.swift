@@ -39,11 +39,11 @@ final class RequestBuilder {
     }
     
     @discardableResult
-    func set(refreshToken: String?) -> Self {
-        guard let refreshToken else {
+    func set(accessToken: String?) -> Self {
+        guard let accessToken else {
             return self
         }
-        set(value: "Bearer \(refreshToken)", for: "Authorization")
+        set(value: "Bearer \(accessToken)", for: "Authorization")
         return self
     }
     

@@ -7,13 +7,6 @@
 
 import Foundation
 
-public enum NetworkError: Error {
-    case noDataAvailableFromServer
-    case invalidStatusCode(Int)
-    case unableToDecodeData
-    case invalidResponse
-}
-
 public actor Boomerang {
     
     public static let shared = Boomerang()
@@ -33,36 +26,59 @@ public actor Boomerang {
     // MARK: - Public API
     
     public func execute<T: Decodable>(_ request: Requestable) async throws -> T {
-        let (data, _) = try await executeRequest(request)
-        return try JSONDecoder().decode(T.self, from: data)
+        let (data, _) = try await executeRequestAndRetry(request)
+        return try jsonDecoder.decode(T.self, from: data)
     }
     
     public func execute(_ request: Requestable) async throws {
-        try await executeRequest(request)
+        try await executeRequestAndRetry(request)
     }
     
     // MARK: - Private functions
     
     @discardableResult
-    private func executeRequest(_ request: Requestable) async throws -> (Data, HTTPURLResponse) {
+    private func executeRequestAndRetry(_ request: Requestable) async throws -> (Data, HTTPURLResponse) {
+        let response = try await executeRequest(request)
+        
+        if response.1.statusCode == 401 && request.authRequirement == .bearerToken {
+            guard let accessToken = response.2 else {
+                throw BoomerangError.missingAccessToken
+            }
+            
+            try await authManager.refresh(after: accessToken)
+            
+            let retryResponse = try await executeRequest(request)
+            
+            try validateResponse(retryResponse.1)
+            return (retryResponse.0, retryResponse.1)
+        }
+
+        try validateResponse(response.1)
+        return (response.0, response.1)
+    }
+    
+    private func executeRequest(_ request: Requestable) async throws -> (Data, HTTPURLResponse, JWT?) {
         let builder = RequestBuilder(request)
+        var accessToken: JWT?
         
         if request.authRequirement == .bearerToken {
-            try await authManager.refreshIfNeeded()
-            let token = await authManager.getRefreshToken()?.value
-            builder.set(refreshToken: token)
+            accessToken = await authManager.getAccessToken()
+            builder.set(accessToken: accessToken?.value)
         }
         
         let (data, res) = try await urlSession.data(for: builder.build())
         
         guard let httpResponse = res as? HTTPURLResponse else {
-            throw NetworkError.invalidResponse
+            throw BoomerangError.invalidResponse
         }
         
-        guard (200..<300).contains(httpResponse.statusCode) else {
-            throw NetworkError.invalidStatusCode(httpResponse.statusCode)
+        return (data, httpResponse, accessToken)
+    }
+    
+    private func validateResponse(_ response: HTTPURLResponse) throws {
+        guard (200..<300).contains(response.statusCode) else {
+            throw BoomerangError.invalidStatusCode(response.statusCode)
         }
-        return (data, httpResponse)
     }
 }
 
