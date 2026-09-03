@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct TokenContainer: Codable, Sendable {
+public struct TokenContainer: Codable, Sendable {
     
     let refreshToken: JWT
     
