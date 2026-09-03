@@ -90,8 +90,7 @@ extension Boomerang {
         await authManager.setRefreshUrl(url)
     }
     
-    public func setCredentials(_ refreshToken: JWT, _ accessToken: JWT) async throws {
-        let container = TokenContainer(refreshToken: refreshToken, accessToken: accessToken)
+    public func setCredentials(_ container: TokenContainer) async throws {
         try await authManager.setCredentials(container)
     }
     
