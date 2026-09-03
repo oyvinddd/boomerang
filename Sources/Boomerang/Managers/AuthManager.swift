@@ -6,6 +6,16 @@
 //
 
 import Foundation
+import Combine
+
+public enum AuthState: Sendable {
+    // not logged in
+    case unauthenticated
+    // logged in
+    case authenticated(JWT)
+    // token refresh in progress
+    case refreshing
+}
 
 actor AuthManager {
     

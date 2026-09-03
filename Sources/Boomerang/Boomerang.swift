@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 
 public actor Boomerang {
     
@@ -17,7 +18,7 @@ public actor Boomerang {
     private var authManager: AuthManager
     private var globalRequestHeaders: [String: String]?
         
-    init(urlSession: URLSession = .shared, decoder: JSONDecoder = .init()) {
+    public init(urlSession: URLSession = .shared, decoder: JSONDecoder = .init()) {
         self.urlSession = urlSession
         self.jsonDecoder = decoder
         self.authManager = .init(urlSession)
