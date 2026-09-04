@@ -6,11 +6,12 @@
 //
 
 import Foundation
-import Combine
 
 public actor Boomerang {
     
     public static let shared = Boomerang()
+    
+    public let authStateStream: AsyncStream<AuthState>
     
     private let urlSession: URLSession
     private let jsonDecoder: JSONDecoder
@@ -21,7 +22,10 @@ public actor Boomerang {
     public init(urlSession: URLSession = .shared, decoder: JSONDecoder = .init()) {
         self.urlSession = urlSession
         self.jsonDecoder = decoder
-        self.authManager = .init(urlSession)
+        
+        let authManager = AuthManager()
+        authStateStream = authManager.authStateStream
+        self.authManager = authManager
     }
     
     // MARK: - Public API

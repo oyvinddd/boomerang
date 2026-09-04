@@ -6,24 +6,28 @@
 //
 
 import Foundation
-import Combine
 
 public enum AuthState: Sendable {
     // not logged in
     case unauthenticated
     // logged in
-    case authenticated(JWT)
+    case authenticated(JWT?)
     // token refresh in progress
     case refreshing
 }
 
 actor AuthManager {
     
+    let authState: AuthState
+    let authStateStream: AsyncStream<AuthState>
+    
     private let urlSession: URLSession
     private var refreshToken: JWT?
     private var accessToken: JWT?
     private var refreshUrl: URL?
     private var refreshTask: Task<Void, Error>?
+    
+    private var continuation: AsyncStream<AuthState>.Continuation
     
     init(_ urlSession: URLSession = .shared) {
         self.urlSession = urlSession
@@ -32,6 +36,12 @@ actor AuthManager {
         } catch {
             print("error loading refresh token from keychain: \(error)")
         }
+        
+        authState = refreshToken != nil ? .authenticated(nil) : .unauthenticated
+        
+        let (stream, continuation) = AsyncStream.makeStream(of: AuthState.self)
+        self.authStateStream = stream
+        self.continuation = continuation
     }
     
     func refresh(after failedAccessToken: JWT) async throws {
@@ -50,7 +60,8 @@ actor AuthManager {
             return
         }
         let task = Task {
-            try await performRefresh()
+            let container = try await performRefresh()
+            try setCredentials(container)
         }
         
         refreshTask = task
@@ -86,11 +97,10 @@ actor AuthManager {
         return KeychainManager.deleteRefreshToken()
     }
     
-    private func performRefresh() async throws {
+    private func performRefresh() async throws -> TokenContainer {
         let request = try buildRefreshRequest()
         let (data, _) = try await urlSession.data(for: request)
-        let container = try JSONDecoder().decode(TokenContainer.self, from: data)
-        try setCredentials(container)
+        return try JSONDecoder().decode(TokenContainer.self, from: data)
     }
     
     private func buildRefreshRequest() throws -> URLRequest {
