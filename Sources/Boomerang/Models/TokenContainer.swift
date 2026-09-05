@@ -12,4 +12,9 @@ public struct TokenContainer: Codable, Sendable {
     let refreshToken: JWT
     
     let accessToken: JWT
+    
+    public init(_ refreshToken: JWT, _ accessToken: JWT) {
+        self.refreshToken = refreshToken
+        self.accessToken = accessToken
+    }
 }
