@@ -16,4 +16,6 @@ enum BoomerangError: Error {
     case missingAccessToken
     
     case invalidStatusCode(Int)
+    
+    case unableToRefreshToken
 }

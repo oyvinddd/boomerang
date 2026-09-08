@@ -11,21 +11,28 @@ public actor Boomerang {
     
     public static let shared = Boomerang()
     
-    public let authStateStream: AsyncStream<AuthState>
-    
     private let urlSession: URLSession
     private let jsonDecoder: JSONDecoder
     
     private var authManager: AuthManager
     private var globalRequestHeaders: [String: String]?
+    
+    private let authStateContinuation: AsyncStream<AuthState>.Continuation
+    public let authStateStream: AsyncStream<AuthState>
         
     public init(urlSession: URLSession = .shared, decoder: JSONDecoder = .init()) {
         self.urlSession = urlSession
         self.jsonDecoder = decoder
+        self.authManager = AuthManager()
         
-        let authManager = AuthManager()
-        authStateStream = authManager.authStateStream
-        self.authManager = authManager
+        var continuation: AsyncStream<AuthState>.Continuation!
+
+        self.authStateStream = AsyncStream { continuation = $0 }
+        self.authStateContinuation = continuation
+        
+        Task {
+            await observeAuthState()
+        }
     }
     
     // MARK: - Public API
@@ -83,6 +90,12 @@ public actor Boomerang {
     private func validateResponse(_ response: HTTPURLResponse) throws {
         guard (200..<300).contains(response.statusCode) else {
             throw BoomerangError.invalidStatusCode(response.statusCode)
+        }
+    }
+    
+    private func observeAuthState() async {
+        for await authState in authManager.authStateStream {
+            authStateContinuation.yield(authState)
         }
     }
 }

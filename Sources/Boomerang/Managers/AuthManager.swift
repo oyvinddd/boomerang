@@ -18,15 +18,15 @@ public enum AuthState: Sendable {
 
 actor AuthManager {
     
-    let authState: AuthState
+    private let urlSession: URLSession
+    
+    private(set) var authState: AuthState
     let authStateStream: AsyncStream<AuthState>
     
-    private let urlSession: URLSession
     private var refreshToken: JWT?
     private var accessToken: JWT?
     private var refreshUrl: URL?
     private var refreshTask: Task<Void, Error>?
-    
     private var continuation: AsyncStream<AuthState>.Continuation
     
     init(_ urlSession: URLSession = .shared) {
@@ -59,9 +59,18 @@ actor AuthManager {
             try await refreshTask.value
             return
         }
+        
+        setAuthState(.refreshing)
+        
         let task = Task {
-            let container = try await performRefresh()
-            try setCredentials(container)
+            do {
+                let container = try await performRefresh()
+                try setCredentials(container)
+                
+            } catch {
+                clearLocalState()
+                throw error
+            }
         }
         
         refreshTask = task
@@ -89,12 +98,19 @@ actor AuthManager {
         try KeychainManager.saveRefreshToken(container.refreshToken)
         refreshToken = container.refreshToken
         accessToken = container.accessToken
+        setAuthState(.authenticated(container.accessToken))
     }
     
-    func clearLocalState() -> Bool {
+    func clearLocalState() {
         refreshToken = nil
         accessToken = nil
-        return KeychainManager.deleteRefreshToken()
+        setAuthState(.unauthenticated)
+        _ = KeychainManager.deleteRefreshToken()
+    }
+    
+    private func setAuthState(_ state: AuthState) {
+        authState = state
+        continuation.yield(state)
     }
     
     private func performRefresh() async throws -> TokenContainer {
