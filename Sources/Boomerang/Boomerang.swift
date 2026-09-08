@@ -97,6 +97,7 @@ public actor Boomerang {
         for await authState in authManager.authStateStream {
             authStateContinuation.yield(authState)
         }
+        authStateContinuation.finish()
     }
 }
 
