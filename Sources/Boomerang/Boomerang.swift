@@ -18,7 +18,7 @@ public actor Boomerang {
     private var globalRequestHeaders: [String: String]?
     
     private let authStateContinuation: AsyncStream<AuthState>.Continuation
-    public let authStateStream: AsyncStream<AuthState>
+    public nonisolated let authStateStream: AsyncStream<AuthState>
         
     public init(urlSession: URLSession = .shared, decoder: JSONDecoder = .init()) {
         self.urlSession = urlSession
@@ -44,6 +44,10 @@ public actor Boomerang {
     
     public func execute(_ request: Requestable) async throws {
         try await executeRequestAndRetry(request)
+    }
+    
+    public func getAuthState() async -> AuthState {
+        return await authManager.authState
     }
     
     // MARK: - Private functions
