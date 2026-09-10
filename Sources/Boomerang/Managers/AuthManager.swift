@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum AuthState: Sendable {
+public enum AuthState: Sendable, Equatable {
     // not logged in
     case unauthenticated
     // logged in
