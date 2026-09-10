@@ -50,6 +50,10 @@ public actor Boomerang {
         return await authManager.authState
     }
     
+    public func getAccessToken() async -> JWT? {
+        return await authManager.accessToken
+    }
+    
     // MARK: - Private functions
     
     @discardableResult
@@ -78,7 +82,7 @@ public actor Boomerang {
         var accessToken: JWT?
         
         if request.authRequirement == .bearerToken {
-            accessToken = await authManager.getAccessToken()
+            accessToken = await authManager.accessToken
             builder.set(accessToken: accessToken?.value)
         }
         

@@ -9,13 +9,14 @@ import Foundation
 
 actor AuthManager {
     
+    let authStateStream: AsyncStream<AuthState>
+    
     private let urlSession: URLSession
     
     private(set) var authState: AuthState
-    let authStateStream: AsyncStream<AuthState>
+    private(set) var refreshToken: JWT?
+    private(set) var accessToken: JWT?
     
-    private var refreshToken: JWT?
-    private var accessToken: JWT?
     private var refreshUrl: URL?
     private var refreshTask: Task<Void, Error>?
     private var continuation: AsyncStream<AuthState>.Continuation
@@ -28,7 +29,7 @@ actor AuthManager {
             print("error loading refresh token from keychain: \(error)")
         }
         
-        authState = refreshToken != nil ? .authenticated(nil) : .unauthenticated
+        authState = refreshToken != nil ? .authenticated : .unauthenticated
         
         let (stream, continuation) = AsyncStream.makeStream(of: AuthState.self)
         self.authStateStream = stream
@@ -77,19 +78,11 @@ actor AuthManager {
         refreshUrl = url
     }
     
-    func getRefreshToken() -> JWT? {
-        return refreshToken
-    }
-    
-    func getAccessToken() -> JWT? {
-        return accessToken
-    }
-    
     func setCredentials(_ container: TokenContainer) throws {
         try KeychainManager.saveRefreshToken(container.refreshToken)
         refreshToken = container.refreshToken
         accessToken = container.accessToken
-        setAuthState(.authenticated(container.accessToken))
+        setAuthState(.authenticated)
     }
     
     func clearLocalState() {
