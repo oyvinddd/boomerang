@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct JWT: Codable, Sendable, Equatable {
+public struct JWT: Codable, Sendable {
     
     let value: String
     
